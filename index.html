@@ -1,0 +1,189 @@
+<!doctype html>
+<html>
+<head>
+  <title>Atlas Chat</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      width: 100%;
+      height: 100%;
+    }
+
+    body {
+      font: 13px Helvetica, Arial;
+      background-color: #f9fff9;
+      width: 100%;
+      height: 100%;
+    }
+
+    #container {
+      display: flex;
+      height: calc(100% - 40px);
+      overflow-x: hidden;
+      overflow-y: scroll;
+    }
+
+    #container li {
+      height: auto;
+    }
+
+    form {
+      background-color: lightgrey;
+      padding: 3px;
+      bottom: 0;
+      width: 100%;
+      position: fixed;
+      height: 40px;
+      display: flex;
+    }
+
+    form input {
+      border: 0;
+      padding: 10px;
+      margin-right: .5%;
+    }
+
+    form span {
+      width: 4%;
+      padding-right: 2px;
+      margin-right: 2px;
+    }
+
+    form button {
+      width: 100px;
+      background: rgb(195, 0, 245);
+      border: none;
+      padding: 10px;
+    }
+
+    #messages {
+      list-style-type: none;
+      margin: 0;
+      padding: 0;
+      width: 80%;
+    }
+
+    #messages li {
+      padding: 5px 10px;
+    }
+
+    #messages li:nth-child(odd) {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    #onlineList {
+      width: 15%;
+    }
+
+    #userColor, #bgColor {
+      width: 50px;
+    }
+
+  </style>
+</head>
+<body>
+<div id="container">
+  <ul id="messages"></ul>
+  <ul id="onlineList"></ul>
+</div>
+<form id="messageForm" action="">
+  <span id="username"></span>
+  <input id="messageInput" autocomplete="off"/>
+  <button id="sendButton">Send</button>
+  <input id="userColor" type="color" value="#000000">
+  <input id="bgColor" type="color" value="#b5c1e6">
+</form>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+
+  let username;
+  while (!username) {
+    username = window.prompt("Enter username");
+  }
+  document.querySelector('#username').innerHTML = username;
+  socket.emit('username', username);
+
+  const messageForm = document.querySelector('#messageForm');
+  messageForm.addEventListener('submit', submitMessage);
+  const userColor = document.querySelector('#userColor');
+  userColor.addEventListener('change', changeColor);
+  const bgColor = document.querySelector('#bgColor');
+  bgColor.addEventListener('change', changeBgColor);
+  socket.on('message', addNewMessage);
+  socket.on('new user', addNewUserMessage);
+  socket.on('onlineList', updateOnlineList);
+  socket.on('historic', applyHistoric);
+
+  if (localStorage.getItem('bgColor')) {
+    const body = document.querySelector('body');
+    body.style.backgroundColor = localStorage.getItem('bgColor');
+  }
+
+  if (localStorage.getItem('userColor')) {
+    const sendButton = document.querySelector('#sendButton');
+    sendButton.style.backgroundColor = localStorage.getItem('userColor');
+    socket.emit('color', localStorage.getItem('userColor'));
+  }
+
+  function submitMessage(e) {
+    e.preventDefault();
+    const msgElem = document.querySelector('#messageInput');
+    if (!msgElem.value.length) return false;
+    socket.emit('message', {username, text: msgElem.value});
+    msgElem.value = '';
+    return false;
+  }
+
+  function changeColor(e) {
+    const userColorElem = document.querySelector('#userColor');
+    const sendButtonElem = document.querySelector('#sendButton');
+    sendButtonElem.style.backgroundColor = userColorElem.value;
+    socket.emit('color', userColorElem.value);
+    localStorage.setItem('userColor', userColorElem.value);
+  }
+
+  function changeBgColor(e) {
+    const bgColor = document.querySelector('#bgColor');
+    const body = document.querySelector('body');
+    body.style.backgroundColor = bgColor.value;
+    localStorage.setItem('bgColor', bgColor.value);
+  }
+
+  function applyHistoric(msgs) {
+    console.log(msgs);
+    msgs.map(msg => addNewMessage(msg));
+  }
+
+  function addNewMessage(msg) {
+    const messagesList = document.querySelector('#messages');
+    let newMsg = document.createElement('li');
+    newMsg.innerHTML = msg.username + ' ' + msg.date + ' : ' + msg.text;
+    newMsg.style.color = msg.color;
+    messagesList.append(newMsg);
+    document.querySelector('#container').scrollTo(0, document.querySelector('#container').clientHeight);
+  }
+
+  function addNewUserMessage(msg) {
+    const messagesList = document.querySelector('#messages');
+    let newMsg = document.createElement('li');
+    newMsg.innerHTML = '<b><i>' + msg + '</i></b>';
+    messagesList.append(newMsg);
+    document.querySelector('#container').scrollTo(0, document.querySelector('#container').clientHeight);
+  }
+
+  function updateOnlineList(onlineList) {
+    const listElem = document.querySelector('#onlineList');
+    listElem.innerHTML = '';
+    onlineList.map(user => {
+      let userElem = document.createElement('li');
+      userElem.innerHTML = user;
+      listElem.append(userElem);
+      console.log(user);
+    });
+  }
+</script>
+</body>
+</html>
